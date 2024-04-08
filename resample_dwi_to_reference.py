@@ -70,10 +70,10 @@ def resample_to_reference(ref_image_file, mov_image_file, output_prefix):
     ants.image_write(output, f"{output_prefix}.nii.gz")
 
 
-def main(reference_image_path, moving_image_path, bvec_path, threshold, output_prefix):
+def main(reference_image_path, moving_image_prefix, threshold, output_prefix):
     # Load images
     ref_image = sitk.ReadImage(reference_image_path)
-    mov_image = sitk.ReadImage(moving_image_path)
+    mov_image = sitk.ReadImage(moving_image_prefix + ".nii.gz")
 
     if ref_image.GetDimension() == 4:
         direction_matrix_4d = np.array(ref_image.GetDirection()).reshape(4, 4)
@@ -99,9 +99,9 @@ def main(reference_image_path, moving_image_path, bvec_path, threshold, output_p
     # Decide action based on angle threshold
     if angle > threshold:
         # Resample moving image into reference image space
-        resample_to_reference(reference_image_path, reference_image_path, output_prefix)
+        resample_to_reference(reference_image_path, moving_image_prefix + ".nii.gz", output_prefix)
         # Rotate bvecs
-        bvecs = read_bvec(bvec_path)
+        bvecs = read_bvec(moving_image_prefix + ".bvec")
         bvecs_rotated = transform_bvecs(bvecs, ref_direction, mov_direction)
         bvecs_out_path = f"{output_prefix}.bvec"
         write_bvec(bvecs_rotated, bvecs_out_path)
@@ -119,11 +119,10 @@ def main(reference_image_path, moving_image_path, bvec_path, threshold, output_p
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process images and bvecs based on rotation threshold.")
     parser.add_argument("reference_image_path", help="Path to the reference image")
-    parser.add_argument("moving_image_path", help="Path to the moving image")
-    parser.add_argument("bvec_path", help="Path to the bvec file")
-    parser.add_argument("threshold", type=float, help="Rotation threshold in degrees")
+    parser.add_argument("moving_image_prefix", help="Path to the moving image .nii.gz and .bvec")
+    parser.add_argument("threshold", help="Angular threshold below which we don't resample bvecs", type=float)
     parser.add_argument("output_prefix", help="Output prefix for the resampled image and bvec file")
 
     args = parser.parse_args()
 
-    main(args.reference_image_path, args.moving_image_path, args.bvec_path, args.threshold, args.output_prefix)
+    main(args.reference_image_path, args.moving_image_prefix, args.threshold, args.output_prefix)
