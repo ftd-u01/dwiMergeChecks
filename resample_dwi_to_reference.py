@@ -4,6 +4,7 @@ import ants
 import numpy as np
 import argparse
 import os
+import shutil
 import tempfile
 import time
 
@@ -142,6 +143,17 @@ def main(reference_image_path: str, moving_image_path: str, output_prefix: str) 
         raise FileNotFoundError(f'Missing required bvec: {bvec_in}')
     B = read_bvec(bvec_in)
 
+    if angle_deg < 0.1 and np.linalg.norm(translation) < 0.1:
+        print(f'Rotation and translation below thresholds; copying inputs to outputs.')
+
+        # Copy image
+        shutil.copyfile(moving_image_path, f'{output_prefix}.nii.gz')
+        shutil.copyfile(bvec_in, f'{output_prefix}.bvec')
+        shutil.copyfile(moving_image_prefix + '.bval', f'{output_prefix}.bval')
+        shutil.copyfile(moving_image_prefix + '.json', f'{output_prefix}.json')
+
+        return
+
     print(f'Resampling DWI to reference space')
     out_img = resample_dwi(ref4d, mov4d)
 
@@ -151,18 +163,9 @@ def main(reference_image_path: str, moving_image_path: str, output_prefix: str) 
     print(f'Writing output')
     ants.image_write(out_img, f'{output_prefix}.nii.gz')
     write_bvec(B_out, f'{output_prefix}.bvec')
+    shutil.copyfile(moving_image_prefix + '.bval', f'{output_prefix}.bval')
     print(f'Wrote: {output_prefix}.nii.gz')
     print(f'Wrote: {output_prefix}.bvec')
-
-    # Copy bvals unchanged
-    bval_in = moving_image_prefix + '.bval'
-    bval_out = output_prefix + '.bval'
-    if os.path.exists(bval_in):
-        with open(bval_in, 'r') as f_in, open(bval_out, 'w') as f_out:
-            f_out.write(f_in.read())
-        print(f'Wrote: {bval_out}')
-    else:
-        print(f'No bval file found at: {bval_in}')
 
     # Record what we did in the JSON
     sidecar_in = moving_image_prefix + '.json'
